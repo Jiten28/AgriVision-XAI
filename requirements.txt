@@ -1,0 +1,39 @@
+# =============================================================================
+# AgriVision-XAI — Python dependencies
+# Windows + Python 3.13 (CPU mode) | pip install -r requirements.txt
+# Switch to tensorflow[and-cuda]==2.20.0 later when on WSL2 for GPU.
+# =============================================================================
+
+# ── Core ML ──────────────────────────────────────────────────────────────────
+tensorflow==2.20.0
+numpy>=1.26,<2.0
+scikit-learn>=1.4.0
+
+# ── Computer Vision & Image Processing ───────────────────────────────────────
+opencv-python>=4.9.0
+scikit-image>=0.22.0
+Pillow>=10.3.0
+
+# ── Visualisation ────────────────────────────────────────────────────────────
+matplotlib>=3.8.0
+seaborn>=0.13.0
+
+# ── Environment / Config ─────────────────────────────────────────────────────
+python-dotenv>=1.0.1
+
+# ── Optional: ONNX Export ────────────────────────────────────────────────────
+# tf2onnx>=1.16.0
+# onnx>=1.16.0
+
+# ── Optional: Jupyter ────────────────────────────────────────────────────────
+# jupyter>=1.0.0
+# ipykernel>=6.29.0
+
+# =============================================================================
+# VERIFY after install — run this:
+#   python -c "import tensorflow as tf; print(tf.__version__)"
+#
+# TO SWITCH TO GPU LATER (WSL2):
+#   1. Replace tensorflow==2.20.0 with tensorflow[and-cuda]==2.20.0
+#   2. pip install -r requirements.txt inside WSL2 Ubuntu
+# =============================================================================
