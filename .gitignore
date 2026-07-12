@@ -18,7 +18,6 @@ dataset_split/
 data/
 datasets/
 *.csv
-V1_DATASET_ROOT/
 
 
 # ── Model Checkpoints & Weights ──────────────────────────────────────────────
