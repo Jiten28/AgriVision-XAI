@@ -1,31 +1,52 @@
 # =============================================================================
 # AgriVision-XAI  |  config.py
-# Central configuration — edit paths here, everything else reads from here.
+#
+# All settings are read from the .env file first.
+# If a variable is not set in .env, the default value defined here is used.
+# Edit .env for machine-specific paths — never hardcode paths here.
 # =============================================================================
 
+import os
 from pathlib import Path
+from dotenv import load_dotenv
+
+# Load .env from the project root (the folder containing this file)
+_HERE = Path(__file__).resolve().parent
+load_dotenv(_HERE / ".env")
+
 
 # ---------------------------------------------------------------------------
-# 1. ROOT PATHS  (edit these to match your machine)
+# HELPER — read env var with a typed default
 # ---------------------------------------------------------------------------
-# Where the original V1 dataset lives (the folder that contains train/ and valid/)
-V1_DATASET_ROOT = Path(r"D:\Coding\GitHub\AgriVision\V1_DATASET_ROOT")
+def _env(key: str, default, cast=str):
+    val = os.environ.get(key)
+    if val is None or val.strip() == "":
+        return default
+    if cast == bool:
+        return val.strip().lower() in ("1", "true", "yes")
+    return cast(val.strip())
 
-# Where AgriVision-XAI will write its own re-split dataset and all outputs.
-# Everything below is auto-derived — you only need to change V1_DATASET_ROOT above.
-PROJECT_ROOT = Path(r"D:\Coding\GitHub\AgriVision-XAI")
 
-# Sub-directories (auto-created by dataset.py)
-SPLIT_DIR = PROJECT_ROOT / "dataset_split"   # re-split train/val/test
+# ---------------------------------------------------------------------------
+# 1. ROOT PATHS
+# ---------------------------------------------------------------------------
+# Where the original V1 dataset lives (folder containing train/ and valid/).
+V1_DATASET_ROOT = Path(_env(
+    "V1_DATASET_ROOT",
+    r"C:\Users\jiten\Downloads\New Plant Diseases Dataset(Augmented)"
+))
+
+# Where AgriVision-XAI writes its split dataset and all outputs.
+PROJECT_ROOT = Path(_env(
+    "PROJECT_ROOT",
+    r"D:\Coding\GitHub\AgriVision-XAI"
+))
+
+# Sub-directories (all auto-derived from PROJECT_ROOT)
+SPLIT_DIR = PROJECT_ROOT / "dataset_split"
 TRAIN_DIR = SPLIT_DIR / "train"
 VAL_DIR = SPLIT_DIR / "val"
 TEST_DIR = SPLIT_DIR / "test"
-
-# Optional: PlantDoc dataset root (for cross-domain evaluation in Step 5)
-# Leave as None if you haven't downloaded it yet.
-PLANTDOC_DIR = None  # e.g. Path(r"D:\Datasets\PlantDoc")
-
-# Where models, logs, and outputs are saved
 CHECKPOINTS_DIR = PROJECT_ROOT / "checkpoints"
 LOGS_DIR = PROJECT_ROOT / "logs"
 OUTPUTS_DIR = PROJECT_ROOT / "outputs"
@@ -33,55 +54,58 @@ GRADCAM_DIR = OUTPUTS_DIR / "gradcam"
 SEVERITY_DIR = OUTPUTS_DIR / "severity"
 EXPORT_DIR = PROJECT_ROOT / "export"
 
+# Optional: PlantDoc dataset for cross-domain evaluation.
+# Leave PLANTDOC_DIR blank in .env to skip this step.
+_plantdoc_raw = _env("PLANTDOC_DIR", "")
+PLANTDOC_DIR = Path(_plantdoc_raw) if _plantdoc_raw else None
+
+
 # ---------------------------------------------------------------------------
 # 2. DATASET SPLIT RATIOS
 # ---------------------------------------------------------------------------
-TRAIN_RATIO = 0.70   # 70 % of all images → training
-# 15 % → validation  (used during training for early stopping)
+TRAIN_RATIO = 0.70
 VAL_RATIO = 0.15
-TEST_RATIO = 0.15   # 15 % → test        (touched ONLY at final evaluation)
-RANDOM_SEED = 42     # fixed seed for full reproducibility
+TEST_RATIO = 0.15
+RANDOM_SEED = _env("RANDOM_SEED", 42, int)
+
 
 # ---------------------------------------------------------------------------
 # 3. IMAGE SETTINGS
 # ---------------------------------------------------------------------------
-# EfficientNetB0 native input (better than V1's 128x128)
 IMAGE_SIZE = (224, 224)
 IMAGE_SHAPE = (224, 224, 3)
 NUM_CHANNELS = 3
 
+
 # ---------------------------------------------------------------------------
 # 4. TRAINING HYPERPARAMETERS
 # ---------------------------------------------------------------------------
-BATCH_SIZE = 32      # fits comfortably in 8 GB VRAM with EfficientNetB0
-EPOCHS_FROZEN = 10      # Phase 1: train only the new head (backbone frozen)
-EPOCHS_FINETUNE = 30      # Phase 2: unfreeze top layers and fine-tune
-TOTAL_EPOCHS = EPOCHS_FROZEN + EPOCHS_FINETUNE   # 40 total
+BATCH_SIZE = _env("BATCH_SIZE",      32,     int)
+EPOCHS_FROZEN = _env("EPOCHS_FROZEN",   10,     int)
+EPOCHS_FINETUNE = _env("EPOCHS_FINETUNE", 30,     int)
+TOTAL_EPOCHS = EPOCHS_FROZEN + EPOCHS_FINETUNE
 
-LR_FROZEN = 1e-3    # higher LR while backbone is frozen
-LR_FINETUNE = 1e-5    # very low LR during fine-tuning to avoid catastrophic forgetting
+LR_FROZEN = _env("LR_FROZEN",    1e-3,  float)
+LR_FINETUNE = _env("LR_FINETUNE",  1e-5,  float)
 
-# Early stopping: stop if val_loss doesn't improve for this many epochs
 EARLY_STOPPING_PATIENCE = 7
-
-# ReduceLROnPlateau: halve LR if val_loss stagnates for this many epochs
 LR_REDUCE_PATIENCE = 3
 LR_REDUCE_FACTOR = 0.5
 LR_REDUCE_MIN = 1e-7
 
+
 # ---------------------------------------------------------------------------
 # 5. MODEL SETTINGS
 # ---------------------------------------------------------------------------
-BACKBONE = "EfficientNetB0"   # options: EfficientNetB0 | ResNet50 | MobileNetV3Large
+BACKBONE = _env("BACKBONE",       "EfficientNetB0")
 DROPOUT_RATE = 0.4
-DENSE_UNITS = 512       # units in the classification head dense layer
-USE_CBAM = True      # set False to ablate attention module
+DENSE_UNITS = 512
+USE_CBAM = _env("USE_CBAM",       True,  bool)
+FINETUNE_LAYERS = _env("FINETUNE_LAYERS", 20,   int)
 
-# Fine-tuning: how many layers from the top of the backbone to unfreeze
-FINETUNE_LAYERS = 20        # unfreeze top 20 layers of EfficientNetB0
 
 # ---------------------------------------------------------------------------
-# 6. CLASS INFORMATION  (38 PlantVillage classes — matches V1)
+# 6. CLASS INFORMATION  (38 PlantVillage classes)
 # ---------------------------------------------------------------------------
 CLASS_NAMES = [
     "Apple___Apple_scab",
@@ -125,40 +149,68 @@ CLASS_NAMES = [
 ]
 NUM_CLASSES = len(CLASS_NAMES)   # 38
 
-# Healthy class indices — used by severity.py to skip severity estimation
-# (no point estimating infection severity on a healthy leaf)
 HEALTHY_CLASS_INDICES = [
-    CLASS_NAMES.index(c) for c in CLASS_NAMES if c.endswith("___healthy")
+    i for i, c in enumerate(CLASS_NAMES) if c.endswith("___healthy")
 ]
 
+
 # ---------------------------------------------------------------------------
-# 7. AUGMENTATION SETTINGS  (applied only to training images)
+# 7. AUGMENTATION SETTINGS
 # ---------------------------------------------------------------------------
-AUG_ROTATION = 30        # degrees (±30)
+AUG_ROTATION = 30
 AUG_WIDTH_SHIFT = 0.15
 AUG_HEIGHT_SHIFT = 0.15
 AUG_ZOOM = 0.15
 AUG_HORIZONTAL_FLIP = True
-AUG_VERTICAL_FLIP = False     # leaf orientation matters; vertical flip is unnatural
-AUG_BRIGHTNESS = [0.7, 1.3]   # simulate different lighting conditions
+AUG_VERTICAL_FLIP = False
+AUG_BRIGHTNESS = [0.7, 1.3]
 AUG_FILL_MODE = "reflect"
 
-# ---------------------------------------------------------------------------
-# 8. EXPLAINABILITY SETTINGS  (Step 6)
-# ---------------------------------------------------------------------------
-GRADCAM_LAYER = "top_conv"   # last conv layer name in EfficientNetB0
-NUM_GRADCAM_SAMPLES = 20           # how many sample images to visualise per run
-# LIME perturbation samples (higher = slower but better)
-LIME_NUM_SAMPLES = 1000
-LIME_NUM_FEATURES = 10           # number of superpixels to highlight
 
 # ---------------------------------------------------------------------------
-# 9. SEVERITY THRESHOLDS  (Step 7)
+# 8. EXPLAINABILITY SETTINGS
 # ---------------------------------------------------------------------------
-# These define what % infected area maps to which severity label.
+GRADCAM_LAYER = "top_conv"
+NUM_GRADCAM_SAMPLES = 20
+LIME_NUM_SAMPLES = 1000
+LIME_NUM_FEATURES = 10
+
+
+# ---------------------------------------------------------------------------
+# 9. SEVERITY THRESHOLDS
+# ---------------------------------------------------------------------------
 SEVERITY_THRESHOLDS = {
-    "Healthy": (0.00, 0.05),  # 0 – 5 %  infected area
-    "Mild": (0.05, 0.25),  # 5 – 25 %
-    "Moderate": (0.25, 0.50),   # 25 – 50 %
-    "Severe": (0.50, 1.00),   # 50 – 100 %
+    "Healthy": (0.00, 0.05),
+    "Mild": (0.05, 0.25),
+    "Moderate": (0.25, 0.50),
+    "Severe": (0.50, 1.00),
 }
+
+
+# ---------------------------------------------------------------------------
+# 10. DIAGNOSTICS — print active config on import (only when run directly)
+# ---------------------------------------------------------------------------
+if __name__ == "__main__":
+    print("=" * 60)
+    print("  AgriVision-XAI | Active Configuration")
+    print("=" * 60)
+    print(f"\n  .env loaded from : {_HERE / '.env'}")
+    print(f"\n  Paths:")
+    print(f"    V1_DATASET_ROOT : {V1_DATASET_ROOT}")
+    print(f"    PROJECT_ROOT    : {PROJECT_ROOT}")
+    print(f"    SPLIT_DIR       : {SPLIT_DIR}")
+    print(f"    PLANTDOC_DIR    : {PLANTDOC_DIR or '(not set)'}")
+    print(f"\n  Dataset:")
+    print(f"    Split ratio     : {TRAIN_RATIO}/{VAL_RATIO}/{TEST_RATIO}")
+    print(f"    Random seed     : {RANDOM_SEED}")
+    print(f"    Image size      : {IMAGE_SIZE}")
+    print(f"    Num classes     : {NUM_CLASSES}")
+    print(f"\n  Training:")
+    print(f"    Backbone        : {BACKBONE}")
+    print(f"    Use CBAM        : {USE_CBAM}")
+    print(f"    Batch size      : {BATCH_SIZE}")
+    print(f"    Epochs (frozen) : {EPOCHS_FROZEN}")
+    print(f"    Epochs (finetune): {EPOCHS_FINETUNE}")
+    print(f"    LR frozen       : {LR_FROZEN}")
+    print(f"    LR finetune     : {LR_FINETUNE}")
+    print(f"    Finetune layers : {FINETUNE_LAYERS}")

@@ -1,2 +1,95 @@
 
+
+# =============================================================================
+# AgriVision-XAI — .gitignore
+# =============================================================================
+
+
+# ── Environment & Secrets ─────────────────────────────────────────────────────
+.env
+.env.*
+!.env.example          # DO keep the example template in version control
+
+
+# ── Dataset Directories ───────────────────────────────────────────────────────
+# Raw datasets are large and should never be committed to Git.
+# Keep them on local disk or a cloud storage bucket.
+dataset_split/
+data/
+datasets/
+*.csv
 V1_DATASET_ROOT/
+
+
+# ── Model Checkpoints & Weights ──────────────────────────────────────────────
+# Keras / TF SavedModel format
+checkpoints/
+*.keras
+*.h5
+*.weights.h5
+saved_model/
+
+# TFLite exports
+export/
+*.tflite
+
+# ONNX exports
+*.onnx
+
+
+# ── Training Outputs & Logs ───────────────────────────────────────────────────
+outputs/
+logs/
+runs/
+wandb/
+
+# TensorBoard event files
+events.out.tfevents.*
+
+
+# ── Python Cache ──────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+.pytest_cache/
+
+
+# ── Virtual Environments ──────────────────────────────────────────────────────
+venv/
+.venv/
+env/
+ENV/
+.conda/
+
+
+# ── Jupyter Notebooks ────────────────────────────────────────────────────────
+.ipynb_checkpoints/
+*.ipynb             # uncomment if you want to exclude notebooks too
+                    # (leave commented to keep them tracked)
+
+
+# ── IDE & OS Files ────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.suo
+*.user
+.DS_Store
+Thumbs.db
+desktop.ini
+
+
+# ── Build / Distribution ──────────────────────────────────────────────────────
+dist/
+build/
+*.egg-info/
+*.egg
+
+
+# ── Misc ──────────────────────────────────────────────────────────────────────
+*.log
+*.tmp
+*.bak
+*.swp
+~$*
+EOF
