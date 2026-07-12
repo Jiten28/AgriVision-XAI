@@ -19,7 +19,7 @@ matplotlib>=3.8.0
 seaborn>=0.13.0
 
 # ── Environment / Config ─────────────────────────────────────────────────────
-python-dotenv>=1.0.1
+python-dotenv
 
 # ── Optional: ONNX Export ────────────────────────────────────────────────────
 # tf2onnx>=1.16.0
