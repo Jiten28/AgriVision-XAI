@@ -194,11 +194,16 @@ def train() -> tf.keras.Model:
     gpus = tf.config.list_physical_devices("GPU")
     if gpus:
         print(f"\n[train] GPU detected: {[g.name for g in gpus]}")
-        # Allow GPU memory to grow incrementally (prevents OOM on 8 GB VRAM)
         for gpu in gpus:
             tf.config.experimental.set_memory_growth(gpu, True)
     else:
-        print("[train] WARNING: No GPU detected. Training on CPU will be very slow.")
+        print("[train] WARNING: No GPU detected. Training on CPU.")
+        # Limit TensorFlow CPU threads to prevent RAM spike on 16 GB machines.
+        # TF by default spawns as many threads as CPU cores — on i7-14th gen
+        # this means 20+ threads all loading image batches simultaneously.
+        tf.config.threading.set_intra_op_parallelism_threads(2)
+        tf.config.threading.set_inter_op_parallelism_threads(2)
+        print("[train] CPU thread limit set to 2 intra + 2 inter to protect RAM.")
 
     # ------------------------------------------------------------------
     # 1. Build datasets
@@ -206,7 +211,9 @@ def train() -> tf.keras.Model:
     print("\n[train] Loading datasets ...")
     train_ds, _ = ds_module.get_train_dataset(batch_size=config.BATCH_SIZE)
     val_ds,   _ = ds_module.get_val_dataset(batch_size=config.BATCH_SIZE)
-    ds_module.print_dataset_summary(train_ds, val_ds, ds_module.get_test_dataset()[0])
+    # Note: skipping print_dataset_summary here to avoid iterating
+    # the full dataset twice on CPU before training even starts.
+    print(f"[train] Train batches: {len(train_ds)} | Val batches: {len(val_ds)}")
 
     # Compute class weights to handle any remaining class imbalance
     print("\n[train] Computing class weights ...")

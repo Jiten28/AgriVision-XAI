@@ -235,14 +235,19 @@ def _build_dataset(
         image = augmenter(image, training=True)
         return image, label
 
+    # On CPU: limit parallel calls to 2 to avoid RAM spike.
+    # On GPU (WSL2 later): change 2 -> tf.data.AUTOTUNE for full speed.
+    PARALLEL = 2
+
     if augment:
-        ds = raw_ds.map(preprocess_and_augment, num_parallel_calls=tf.data.AUTOTUNE)
+        ds = raw_ds.map(preprocess_and_augment, num_parallel_calls=PARALLEL)
     else:
-        ds = raw_ds.map(preprocess, num_parallel_calls=tf.data.AUTOTUNE)
+        ds = raw_ds.map(preprocess, num_parallel_calls=PARALLEL)
 
     # ---- Performance tuning ----
-    ds = ds.cache()          # cache after first epoch (fits in RAM for PlantVillage)
-    ds = ds.prefetch(tf.data.AUTOTUNE)
+    # DO NOT cache() on CPU — loads entire dataset into RAM, crashes 16 GB machines.
+    # Re-enable when on GPU/WSL2: ds = ds.cache()
+    ds = ds.prefetch(2)   # keep only 2 batches in memory at a time
 
     return ds, found_classes
 

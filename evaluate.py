@@ -34,6 +34,7 @@ from sklearn.metrics import (
 
 import config
 import dataset as ds_module
+import model as model_module  # registers CBAMBlock before load_model
 
 
 # ---------------------------------------------------------------------------
@@ -42,7 +43,8 @@ import dataset as ds_module
 
 def _load_model(model_path: str | None) -> tf.keras.Model:
     """Load the trained model. Defaults to best_model.keras if no path given."""
-    path = Path(model_path) if model_path else config.CHECKPOINTS_DIR / "best_model.keras"
+    path = Path(model_path) if model_path else config.CHECKPOINTS_DIR / \
+        "best_model.keras"
     if not path.exists():
         raise FileNotFoundError(
             f"Model not found at {path}\n"
@@ -61,18 +63,18 @@ def _predict(model: tf.keras.Model, dataset: tf.data.Dataset) -> tuple[np.ndarra
         y_pred     : (N,)   predicted class indices (argmax of softmax)
         y_probs    : (N, C) softmax probabilities for all classes
     """
-    all_true  = []
+    all_true = []
     all_probs = []
 
     for images, labels in dataset:
         probs = model(images, training=False).numpy()  # (batch, C)
-        true  = np.argmax(labels.numpy(), axis=1)      # (batch,)
+        true = np.argmax(labels.numpy(), axis=1)      # (batch,)
         all_true.append(true)
         all_probs.append(probs)
 
-    y_true  = np.concatenate(all_true,  axis=0)
+    y_true = np.concatenate(all_true,  axis=0)
     y_probs = np.concatenate(all_probs, axis=0)
-    y_pred  = np.argmax(y_probs, axis=1)
+    y_pred = np.argmax(y_probs, axis=1)
 
     return y_true, y_pred, y_probs
 
@@ -193,14 +195,16 @@ def evaluate(model_path: str | None = None) -> None:
         print("[evaluate] Run dataset.py first to create the split.")
         return
 
-    test_ds, class_names = ds_module.get_test_dataset(batch_size=config.BATCH_SIZE)
+    test_ds, class_names = ds_module.get_test_dataset(
+        batch_size=config.BATCH_SIZE)
 
     print("[evaluate] Running inference on test set ...")
     y_true, y_pred, y_probs = _predict(model, test_ds)
 
     # --- Core metrics ---
-    acc     = accuracy_score(y_true, y_pred)
-    top3acc = top_k_accuracy_score(y_true, y_probs, k=3, labels=np.arange(config.NUM_CLASSES))
+    acc = accuracy_score(y_true, y_pred)
+    top3acc = top_k_accuracy_score(
+        y_true, y_probs, k=3, labels=np.arange(config.NUM_CLASSES))
     report_str = classification_report(
         y_true, y_pred,
         target_names=class_names,
@@ -261,16 +265,20 @@ def evaluate(model_path: str | None = None) -> None:
         print(f"[evaluate] PlantDoc classes found: {len(plantdoc_classes)}")
 
         # Find overlapping classes with PlantVillage
-        pv_set  = set(config.CLASS_NAMES)
-        pd_set  = set(plantdoc_classes)
+        pv_set = set(config.CLASS_NAMES)
+        pd_set = set(plantdoc_classes)
         overlap = sorted(pv_set & pd_set)
         print(f"[evaluate] Overlapping classes: {len(overlap)}")
 
         if len(overlap) == 0:
-            print("[evaluate] No overlapping class names found between PlantVillage and PlantDoc.")
-            print("[evaluate] This is expected — PlantDoc uses a different naming convention.")
-            print("[evaluate] Skipping cross-domain evaluation. You'll need to manually map class names.")
-            summary["cross_domain"] = {"status": "skipped", "reason": "no_class_overlap"}
+            print(
+                "[evaluate] No overlapping class names found between PlantVillage and PlantDoc.")
+            print(
+                "[evaluate] This is expected — PlantDoc uses a different naming convention.")
+            print(
+                "[evaluate] Skipping cross-domain evaluation. You'll need to manually map class names.")
+            summary["cross_domain"] = {
+                "status": "skipped", "reason": "no_class_overlap"}
         else:
             def preprocess_pd(img, lbl):
                 return tf.cast(img, tf.float32), lbl
@@ -283,8 +291,10 @@ def evaluate(model_path: str | None = None) -> None:
             y_true_pd, y_pred_pd, y_probs_pd = _predict(model, plantdoc_ds)
 
             acc_pd = accuracy_score(y_true_pd, y_pred_pd)
-            print(f"\n  Cross-Domain Accuracy (PlantDoc) : {acc_pd:.4f}  ({acc_pd*100:.2f}%)")
-            print(f"  (Compare to In-Domain: {acc*100:.2f}% — gap = {(acc - acc_pd)*100:.2f}%)")
+            print(
+                f"\n  Cross-Domain Accuracy (PlantDoc) : {acc_pd:.4f}  ({acc_pd*100:.2f}%)")
+            print(
+                f"  (Compare to In-Domain: {acc*100:.2f}% — gap = {(acc - acc_pd)*100:.2f}%)")
 
             _plot_confusion_matrix(
                 y_true_pd, y_pred_pd, plantdoc_classes,
@@ -300,7 +310,8 @@ def evaluate(model_path: str | None = None) -> None:
     else:
         print("\n[evaluate] PlantDoc directory not configured or not found.")
         print("[evaluate] Set PLANTDOC_DIR in config.py to run cross-domain evaluation.")
-        summary["cross_domain"] = {"status": "skipped", "reason": "dataset_not_configured"}
+        summary["cross_domain"] = {
+            "status": "skipped", "reason": "dataset_not_configured"}
 
     # ------------------------------------------------------------------
     # C. Save summary
@@ -318,8 +329,10 @@ def evaluate(model_path: str | None = None) -> None:
     print(f"{'=' * 65}")
     print(f"  In-Domain Test Accuracy  : {acc*100:.2f}%")
     if "accuracy" in summary.get("cross_domain", {}):
-        print(f"  Cross-Domain Accuracy    : {summary['cross_domain']['accuracy']*100:.2f}%")
-        print(f"  Generalisation Gap       : {summary['cross_domain']['generalization_gap']*100:.2f}%")
+        print(
+            f"  Cross-Domain Accuracy    : {summary['cross_domain']['accuracy']*100:.2f}%")
+        print(
+            f"  Generalisation Gap       : {summary['cross_domain']['generalization_gap']*100:.2f}%")
     print(f"\n  All outputs saved to: {config.OUTPUTS_DIR}")
     print(f"  Run explainability.py next for Grad-CAM visualisations.")
 

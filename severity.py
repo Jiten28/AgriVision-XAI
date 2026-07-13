@@ -37,6 +37,7 @@ import tensorflow as tf
 
 import config
 import dataset as ds_module
+import model as model_module  # registers CBAMBlock before load_model
 from explainability import gradcam
 
 

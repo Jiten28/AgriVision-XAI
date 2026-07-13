@@ -31,6 +31,7 @@ import tensorflow as tf
 
 import config
 import dataset as ds_module
+import model as model_module  # registers CBAMBlock before load_model
 
 
 # ---------------------------------------------------------------------------
@@ -122,8 +123,8 @@ def gradcam(
 
     elif method == "gradcam++":
         # Grad-CAM++: weight gradients by gradient² / (2×gradient² + sum(conv×gradient³))
-        grads_sq  = grads ** 2
-        grads_cu  = grads ** 3
+        grads_sq = grads ** 2
+        grads_cu = grads ** 3
         conv_out_exp = conv_outputs  # (1, h, w, C)
         # Per-pixel normalization factor (sum over spatial dimensions)
         denom = 2.0 * grads_sq + tf.reduce_sum(
@@ -131,12 +132,16 @@ def gradcam(
         )
         alpha = grads_sq / (denom + 1e-8)
         # Weight by ReLU(gradient) — only positive gradients
-        weights = tf.reduce_sum(alpha * tf.nn.relu(grads), axis=(1, 2))  # (1, C)
-        conv_out = conv_outputs[0]                                         # (h, w, C)
-        heatmap = conv_out @ weights[0, ..., tf.newaxis]                  # (h, w, 1)
+        weights = tf.reduce_sum(
+            alpha * tf.nn.relu(grads), axis=(1, 2))  # (1, C)
+        # (h, w, C)
+        conv_out = conv_outputs[0]
+        heatmap = conv_out @ weights[0, ...,
+                                     tf.newaxis]                  # (h, w, 1)
 
     else:
-        raise ValueError(f"Unknown method: '{method}'. Use 'gradcam' or 'gradcam++'.")
+        raise ValueError(
+            f"Unknown method: '{method}'. Use 'gradcam' or 'gradcam++'.")
 
     # ReLU: keep only features that positively impact the class score
     heatmap = tf.nn.relu(heatmap)
@@ -170,13 +175,14 @@ def overlay_heatmap(
     Returns:
         blended  : (H, W, 3) uint8 BGR image suitable for cv2.imwrite
     """
-    cmap   = mpl_cm.get_cmap(colormap)
-    heat_rgb = (cmap(heatmap)[:, :, :3] * 255).astype(np.uint8)  # (H, W, 3) RGB
+    cmap = mpl_cm.get_cmap(colormap)
+    heat_rgb = (cmap(heatmap)[:, :, :3] *
+                255).astype(np.uint8)  # (H, W, 3) RGB
     heat_bgr = cv2.cvtColor(heat_rgb, cv2.COLOR_RGB2BGR)
 
-    img_bgr  = cv2.cvtColor(image.astype(np.uint8), cv2.COLOR_RGB2BGR)
+    img_bgr = cv2.cvtColor(image.astype(np.uint8), cv2.COLOR_RGB2BGR)
 
-    blended  = cv2.addWeighted(img_bgr, 1 - alpha, heat_bgr, alpha, 0)
+    blended = cv2.addWeighted(img_bgr, 1 - alpha, heat_bgr, alpha, 0)
     return blended
 
 
@@ -221,12 +227,14 @@ def lime_explanation(
     img_uint8 = image.astype(np.uint8)
 
     # Step 1: Superpixel segmentation (SLIC algorithm)
-    segments = slic(img_uint8, n_segments=50, compactness=10, sigma=1, start_label=0)
+    segments = slic(img_uint8, n_segments=50,
+                    compactness=10, sigma=1, start_label=0)
     num_superpixels = segments.max() + 1
 
     # Step 2: Generate perturbed images (randomly mask superpixels)
     rng = np.random.RandomState(config.RANDOM_SEED)
-    perturbations = rng.randint(0, 2, (num_samples, num_superpixels)).astype(np.float32)
+    perturbations = rng.randint(
+        0, 2, (num_samples, num_superpixels)).astype(np.float32)
 
     def perturb_image(mask_row: np.ndarray) -> np.ndarray:
         """Apply a binary superpixel mask to the image (off = grey)."""
@@ -244,24 +252,26 @@ def lime_explanation(
     # Step 3: Get model predictions on perturbed images
     # Process in batches of 64 to avoid OOM
     batch_sz = 64
-    scores   = []
-    pred_class = int(tf.argmax(model(tf.cast(image[np.newaxis], tf.float32), training=False)[0]).numpy())
+    scores = []
+    pred_class = int(tf.argmax(
+        model(tf.cast(image[np.newaxis], tf.float32), training=False)[0]).numpy())
 
     for i in range(0, num_samples, batch_sz):
         batch = tf.cast(perturbed_imgs[i:i + batch_sz], tf.float32)
-        preds = model(batch, training=False).numpy()          # (batch, NUM_CLASSES)
+        # (batch, NUM_CLASSES)
+        preds = model(batch, training=False).numpy()
         scores.extend(preds[:, pred_class])
 
     scores = np.array(scores, dtype=np.float32)   # (num_samples,)
 
     # Step 4: Fit a weighted linear model
     # Distance weight: samples closer to the original image get more weight
-    distances   = np.sum((perturbations - 1.0) ** 2, axis=1) ** 0.5
+    distances = np.sum((perturbations - 1.0) ** 2, axis=1) ** 0.5
     kernel_width = 0.25
-    weights      = np.exp(-distances ** 2 / (2 * kernel_width ** 2))
+    weights = np.exp(-distances ** 2 / (2 * kernel_width ** 2))
 
     # Weighted least-squares: X'WX β = X'Wy
-    W   = np.diag(weights)
+    W = np.diag(weights)
     XtW = perturbations.T @ W
     try:
         beta = np.linalg.solve(XtW @ perturbations + 1e-5 * np.eye(num_superpixels),
@@ -278,7 +288,8 @@ def lime_explanation(
 
     # Green overlay on supporting regions, darkened background
     overlay = img_uint8.copy().astype(np.float32)
-    overlay[~mask] = overlay[~mask] * 0.3                        # dim background
+    overlay[~mask] = overlay[~mask] * \
+        0.3                        # dim background
     overlay[mask, 1] = np.minimum(overlay[mask, 1] * 1.5, 255)  # green tint
 
     return overlay.astype(np.uint8)
@@ -301,24 +312,27 @@ def explain_sample(
     Generates and saves Grad-CAM, Grad-CAM++, and (optionally) LIME for
     a single image.
     """
-    img_f32  = image.astype(np.float32)
-    probs    = model(tf.cast(img_f32[np.newaxis], tf.float32), training=False).numpy()[0]
+    img_f32 = image.astype(np.float32)
+    probs = model(tf.cast(img_f32[np.newaxis],
+                  tf.float32), training=False).numpy()[0]
     pred_idx = int(np.argmax(probs))
-    conf     = float(probs[pred_idx])
+    conf = float(probs[pred_idx])
 
     pred_name = class_names[pred_idx]
     true_name = class_names[true_label]
-    correct   = "✓" if pred_idx == true_label else "✗"
+    correct = "✓" if pred_idx == true_label else "✗"
 
     print(f"\n[explainability] Sample {sample_idx:03d}: "
           f"True={true_name}  |  Pred={pred_name}  |  Conf={conf:.3f} {correct}")
 
     # --- Grad-CAM ---
-    heatmap_gc   = gradcam(model, img_f32, class_index=pred_idx, method="gradcam")
-    overlay_gc   = overlay_heatmap(img_f32, heatmap_gc)
+    heatmap_gc = gradcam(
+        model, img_f32, class_index=pred_idx, method="gradcam")
+    overlay_gc = overlay_heatmap(img_f32, heatmap_gc)
 
     # --- Grad-CAM++ ---
-    heatmap_gcpp = gradcam(model, img_f32, class_index=pred_idx, method="gradcam++")
+    heatmap_gcpp = gradcam(
+        model, img_f32, class_index=pred_idx, method="gradcam++")
     overlay_gcpp = overlay_heatmap(img_f32, heatmap_gcpp)
 
     # --- LIME ---
@@ -351,7 +365,7 @@ def explain_sample(
 
     plt.tight_layout()
     safe_name = pred_name.replace("/", "_").replace(" ", "_")[:40]
-    out_path  = save_dir / f"{sample_idx:03d}_{safe_name}_explanation.png"
+    out_path = save_dir / f"{sample_idx:03d}_{safe_name}_explanation.png"
     plt.savefig(str(out_path), dpi=150, bbox_inches="tight")
     plt.close()
     print(f"[explainability] Saved explanation to {out_path}")
@@ -373,7 +387,8 @@ def run_explainability(
     config.GRADCAM_DIR.mkdir(parents=True, exist_ok=True)
 
     # Load model
-    path = Path(model_path) if model_path else config.CHECKPOINTS_DIR / "best_model.keras"
+    path = Path(model_path) if model_path else config.CHECKPOINTS_DIR / \
+        "best_model.keras"
     print(f"[explainability] Loading model from {path} ...")
     model = tf.keras.models.load_model(str(path))
 
@@ -382,7 +397,7 @@ def run_explainability(
 
     # Sample `num_samples` images spread across the test set
     sample_counter = 0
-    step           = max(1, sum(1 for _ in test_ds) // num_samples)
+    step = max(1, sum(1 for _ in test_ds) // num_samples)
 
     for i, (image_batch, label_batch) in enumerate(test_ds):
         if i % step != 0:
@@ -404,17 +419,21 @@ def run_explainability(
         )
         sample_counter += 1
 
-    print(f"\n[explainability] Done. {sample_counter} explanations saved to {config.GRADCAM_DIR}")
+    print(
+        f"\n[explainability] Done. {sample_counter} explanations saved to {config.GRADCAM_DIR}")
 
 
 # ---------------------------------------------------------------------------
 # ENTRY POINT
 # ---------------------------------------------------------------------------
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="AgriVision-XAI Explainability")
+    parser = argparse.ArgumentParser(
+        description="AgriVision-XAI Explainability")
     parser.add_argument("--model",   type=str, default=None)
-    parser.add_argument("--samples", type=int, default=config.NUM_GRADCAM_SAMPLES)
-    parser.add_argument("--no-lime", action="store_true", help="Skip LIME (faster)")
+    parser.add_argument("--samples", type=int,
+                        default=config.NUM_GRADCAM_SAMPLES)
+    parser.add_argument("--no-lime", action="store_true",
+                        help="Skip LIME (faster)")
     args = parser.parse_args()
 
     run_explainability(

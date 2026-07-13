@@ -43,64 +43,64 @@ PROJECT_ROOT = Path(_env(
 ))
 
 # Sub-directories (all auto-derived from PROJECT_ROOT)
-SPLIT_DIR = PROJECT_ROOT / "dataset_split"
-TRAIN_DIR = SPLIT_DIR / "train"
-VAL_DIR = SPLIT_DIR / "val"
-TEST_DIR = SPLIT_DIR / "test"
+SPLIT_DIR       = PROJECT_ROOT / "dataset_split"
+TRAIN_DIR       = SPLIT_DIR   / "train"
+VAL_DIR         = SPLIT_DIR   / "val"
+TEST_DIR        = SPLIT_DIR   / "test"
 CHECKPOINTS_DIR = PROJECT_ROOT / "checkpoints"
-LOGS_DIR = PROJECT_ROOT / "logs"
-OUTPUTS_DIR = PROJECT_ROOT / "outputs"
-GRADCAM_DIR = OUTPUTS_DIR / "gradcam"
-SEVERITY_DIR = OUTPUTS_DIR / "severity"
-EXPORT_DIR = PROJECT_ROOT / "export"
+LOGS_DIR        = PROJECT_ROOT / "logs"
+OUTPUTS_DIR     = PROJECT_ROOT / "outputs"
+GRADCAM_DIR     = OUTPUTS_DIR  / "gradcam"
+SEVERITY_DIR    = OUTPUTS_DIR  / "severity"
+EXPORT_DIR      = PROJECT_ROOT / "export"
 
 # Optional: PlantDoc dataset for cross-domain evaluation.
 # Leave PLANTDOC_DIR blank in .env to skip this step.
 _plantdoc_raw = _env("PLANTDOC_DIR", "")
-PLANTDOC_DIR = Path(_plantdoc_raw) if _plantdoc_raw else None
+PLANTDOC_DIR  = Path(_plantdoc_raw) if _plantdoc_raw else None
 
 
 # ---------------------------------------------------------------------------
 # 2. DATASET SPLIT RATIOS
 # ---------------------------------------------------------------------------
 TRAIN_RATIO = 0.70
-VAL_RATIO = 0.15
-TEST_RATIO = 0.15
+VAL_RATIO   = 0.15
+TEST_RATIO  = 0.15
 RANDOM_SEED = _env("RANDOM_SEED", 42, int)
 
 
 # ---------------------------------------------------------------------------
 # 3. IMAGE SETTINGS
 # ---------------------------------------------------------------------------
-IMAGE_SIZE = (224, 224)
-IMAGE_SHAPE = (224, 224, 3)
+IMAGE_SIZE   = (128, 128)   # CPU: 128 saves ~3x memory vs 224; restore to (224,224) on GPU
+IMAGE_SHAPE  = (128, 128, 3)
 NUM_CHANNELS = 3
 
 
 # ---------------------------------------------------------------------------
 # 4. TRAINING HYPERPARAMETERS
 # ---------------------------------------------------------------------------
-BATCH_SIZE = _env("BATCH_SIZE",      32,     int)
-EPOCHS_FROZEN = _env("EPOCHS_FROZEN",   10,     int)
-EPOCHS_FINETUNE = _env("EPOCHS_FINETUNE", 30,     int)
-TOTAL_EPOCHS = EPOCHS_FROZEN + EPOCHS_FINETUNE
+BATCH_SIZE             = _env("BATCH_SIZE",      32,     int)
+EPOCHS_FROZEN          = _env("EPOCHS_FROZEN",   10,     int)
+EPOCHS_FINETUNE        = _env("EPOCHS_FINETUNE", 30,     int)
+TOTAL_EPOCHS           = EPOCHS_FROZEN + EPOCHS_FINETUNE
 
-LR_FROZEN = _env("LR_FROZEN",    1e-3,  float)
-LR_FINETUNE = _env("LR_FINETUNE",  1e-5,  float)
+LR_FROZEN              = _env("LR_FROZEN",    1e-3,  float)
+LR_FINETUNE            = _env("LR_FINETUNE",  1e-5,  float)
 
 EARLY_STOPPING_PATIENCE = 7
-LR_REDUCE_PATIENCE = 3
-LR_REDUCE_FACTOR = 0.5
-LR_REDUCE_MIN = 1e-7
+LR_REDUCE_PATIENCE      = 3
+LR_REDUCE_FACTOR        = 0.5
+LR_REDUCE_MIN           = 1e-7
 
 
 # ---------------------------------------------------------------------------
 # 5. MODEL SETTINGS
 # ---------------------------------------------------------------------------
-BACKBONE = _env("BACKBONE",       "EfficientNetB0")
-DROPOUT_RATE = 0.4
-DENSE_UNITS = 512
-USE_CBAM = _env("USE_CBAM",       True,  bool)
+BACKBONE        = _env("BACKBONE",       "EfficientNetB0")
+DROPOUT_RATE    = 0.4
+DENSE_UNITS     = 256       # CPU: 256 is enough for smoke test; restore to 512 on GPU
+USE_CBAM        = _env("USE_CBAM",       True,  bool)
 FINETUNE_LAYERS = _env("FINETUNE_LAYERS", 20,   int)
 
 
@@ -157,33 +157,33 @@ HEALTHY_CLASS_INDICES = [
 # ---------------------------------------------------------------------------
 # 7. AUGMENTATION SETTINGS
 # ---------------------------------------------------------------------------
-AUG_ROTATION = 30
-AUG_WIDTH_SHIFT = 0.15
-AUG_HEIGHT_SHIFT = 0.15
-AUG_ZOOM = 0.15
+AUG_ROTATION        = 30
+AUG_WIDTH_SHIFT     = 0.15
+AUG_HEIGHT_SHIFT    = 0.15
+AUG_ZOOM            = 0.15
 AUG_HORIZONTAL_FLIP = True
-AUG_VERTICAL_FLIP = False
-AUG_BRIGHTNESS = [0.7, 1.3]
-AUG_FILL_MODE = "reflect"
+AUG_VERTICAL_FLIP   = False
+AUG_BRIGHTNESS      = [0.7, 1.3]
+AUG_FILL_MODE       = "reflect"
 
 
 # ---------------------------------------------------------------------------
 # 8. EXPLAINABILITY SETTINGS
 # ---------------------------------------------------------------------------
-GRADCAM_LAYER = "top_conv"
+GRADCAM_LAYER       = "top_conv"
 NUM_GRADCAM_SAMPLES = 20
-LIME_NUM_SAMPLES = 1000
-LIME_NUM_FEATURES = 10
+LIME_NUM_SAMPLES    = 1000
+LIME_NUM_FEATURES   = 10
 
 
 # ---------------------------------------------------------------------------
 # 9. SEVERITY THRESHOLDS
 # ---------------------------------------------------------------------------
 SEVERITY_THRESHOLDS = {
-    "Healthy": (0.00, 0.05),
-    "Mild": (0.05, 0.25),
-    "Moderate": (0.25, 0.50),
-    "Severe": (0.50, 1.00),
+    "Healthy"  : (0.00, 0.05),
+    "Mild"     : (0.05, 0.25),
+    "Moderate" : (0.25, 0.50),
+    "Severe"   : (0.50, 1.00),
 }
 
 
