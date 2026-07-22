@@ -48,35 +48,53 @@ import model as model_module  # registers CBAMBlock before load_model
 
 def _get_gradcam_model(model: tf.keras.Model) -> tf.keras.Model:
     """
-    Builds a sub-model that outputs:
-      (last_conv_feature_maps, final_predictions)
+    Builds a grad model that outputs (last_conv_feature_maps, predictions).
+
+    In Keras 3, the backbone is a nested sub-model.  We cannot directly wire
+    an internal sublayer's output into the outer model's graph.  Instead we:
+      1. Build a backbone sub-model: input → last conv layer output
+      2. Build the full grad model:  input → [backbone_conv_out, full_pred]
+    Both sub-models share the same input tensor so gradients flow correctly.
     """
-    # Find the last convolutional layer in the backbone
+    from model import BACKBONE_LAYER_NAME
+
+    # --- Step 1: find the backbone sub-model inside the main model ---
+    backbone_layer_name = BACKBONE_LAYER_NAME.get(
+        config.BACKBONE, config.BACKBONE.lower()
+    )
+    backbone = model.get_layer(backbone_layer_name)
+
+    # --- Step 2: find the last Conv layer INSIDE the backbone ---
     last_conv_layer = None
-    for layer in reversed(model.layers):
-        if isinstance(layer, (tf.keras.layers.Conv2D, tf.keras.layers.DepthwiseConv2D)):
+    for layer in reversed(backbone.layers):
+        if isinstance(layer, (tf.keras.layers.Conv2D,
+                              tf.keras.layers.DepthwiseConv2D)):
             last_conv_layer = layer
             break
-        # For EfficientNetB0, the backbone is a nested model
-        if hasattr(layer, "layers"):
-            for sublayer in reversed(layer.layers):
-                if isinstance(sublayer, (tf.keras.layers.Conv2D, tf.keras.layers.DepthwiseConv2D)):
-                    last_conv_layer = sublayer
-                    break
-            if last_conv_layer:
-                break
 
     if last_conv_layer is None:
         raise ValueError(
-            "Could not find a Conv2D or DepthwiseConv2D layer to use for Grad-CAM. "
-            "Set GRADCAM_LAYER in config.py to the layer name manually."
+            f"Could not find a Conv2D layer in backbone '{backbone_layer_name}'."
         )
 
     print(f"[explainability] Grad-CAM target layer: '{last_conv_layer.name}'")
 
+    # --- Step 3: build a backbone sub-model that exposes the conv output ---
+    backbone_grad = tf.keras.Model(
+        inputs=backbone.input,
+        outputs=last_conv_layer.output,
+        name="backbone_grad"
+    )
+
+    # --- Step 4: build the full grad model using the OUTER model's input ---
+    img_input = model.input                          # outer model input
+    conv_out = backbone_grad(img_input)             # conv feature maps
+    predictions = model.output                         # final softmax output
+
     grad_model = tf.keras.Model(
-        inputs=model.inputs,
-        outputs=[last_conv_layer.output, model.output]
+        inputs=img_input,
+        outputs=[conv_out, predictions],
+        name="gradcam_model"
     )
     return grad_model
 
