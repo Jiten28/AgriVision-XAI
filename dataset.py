@@ -237,7 +237,7 @@ def _build_dataset(
 
     # On CPU: limit parallel calls to 2 to avoid RAM spike.
     # On GPU (WSL2 later): change 2 -> tf.data.AUTOTUNE for full speed.
-    PARALLEL = 2
+    PARALLEL = tf.data.AUTOTUNE
 
     if augment:
         ds = raw_ds.map(preprocess_and_augment, num_parallel_calls=PARALLEL)
@@ -247,7 +247,8 @@ def _build_dataset(
     # ---- Performance tuning ----
     # DO NOT cache() on CPU — loads entire dataset into RAM, crashes 16 GB machines.
     # Re-enable when on GPU/WSL2: ds = ds.cache()
-    ds = ds.prefetch(2)   # keep only 2 batches in memory at a time
+    ds = ds.cache()
+    ds = ds.prefetch(tf.data.AUTOTUNE)   # keep only 2 batches in memory at a time
 
     return ds, found_classes
 
