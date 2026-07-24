@@ -405,7 +405,7 @@ if __name__ == "__main__":
     print(f"[dataset] Class ordering consistent across all splits. ({len(train_classes)} classes)")
 
     # Print summary
-    print_dataset_summary(train_ds, val_ds, test_ds)
+    print("[dataset] Datasets loaded successfully.")
 
     # Step C: compute and display class weights
     print("\n[dataset] Computing class weights ...")
